@@ -1,3 +1,5 @@
+import math
+
 import pandas as pd
 import openpyxl
 import gspread
@@ -82,14 +84,14 @@ for sheet_name in xls.sheet_names:
     transactions = []
     if sheet_name in column_indexs:
         for idx, row in df.iterrows():
-            transaction_date = None
             try:
                 transaction_date = row.iloc[column_indexs[sheet_name]['transaction_date']]
-                if type(transaction_date) == str and datetime.strptime(transaction_date, "%d %b"):
-                    transaction_date = datetime.strptime(transaction_date, "%d %b")  # Expects format like "16 Nov"
+                transaction_date = datetime.strptime(transaction_date, "%d %b")  # Expects format like "16 Nov"
             except ValueError:
-                pass
-            if transaction_date != " ":
+                transaction_date = None
+            except TypeError:
+                transaction_date = None
+            if transaction_date:
                 values = []
                 # Convert date properly
                 if isinstance(transaction_date, str):
@@ -106,12 +108,11 @@ for sheet_name in xls.sheet_names:
 
                 date = transaction_date
                 description = row.iloc[column_indexs[sheet_name]['description_1']]
-                values.append(row.iloc[column_indexs[sheet_name]['description_1']])
+                values.append(description)
                 money = row.iloc[column_indexs[sheet_name]['amount']]
                 # Process amount correctly
                 if money != "nan" or money != " ":
                     amount = process_amount(money)
-                    print(f" find the type of amount {type(money)} ---- {money}")
                 transactions.append([date, amount, description])
 
 
@@ -133,7 +134,7 @@ for sheet_name in xls.sheet_names:
             sheet.update(range_name=row_range, values=batch)
             # print(f"Updated rows {start_row + i} to {start_row + i + len(batch) - 1}")
 
-        # # Calculate totals
+        # Calculate totals
         # debited_sum = sum(abs(t[1]) for t in transactions if t[1] < 0)
         # credited_sum = sum(t[1] for t in transactions if t[1] > 0)
         # total_spent = debited_sum
@@ -147,12 +148,9 @@ for sheet_name in xls.sheet_names:
         # ]
         # sheet.update(range_name=f"A{summary_row}:B{summary_row + 2}", values=summary_values)
 
-        print("Data successfully written to Google Sheets.")
+        print(f"Processing completed; {len(transactions)} rows added to Google Sheets.")
     else:
         print("No valid transactions found.")
-
-
-
 
 
 
