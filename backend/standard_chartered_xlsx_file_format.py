@@ -134,19 +134,6 @@ for sheet_name in xls.sheet_names:
             sheet.update(range_name=row_range, values=batch)
             # print(f"Updated rows {start_row + i} to {start_row + i + len(batch) - 1}")
 
-        # Calculate totals
-        # debited_sum = sum(abs(t[1]) for t in transactions if t[1] < 0)
-        # credited_sum = sum(t[1] for t in transactions if t[1] > 0)
-        # total_spent = debited_sum
-        #
-        # # Write summary values
-        # summary_row = len(transactions) + start_row
-        # summary_values = [
-        #     ["Debited", debited_sum],
-        #     ["Credited Money", credited_sum],
-        #     ["Total Money Spent (This Month)", total_spent]
-        # ]
-        # sheet.update(range_name=f"A{summary_row}:B{summary_row + 2}", values=summary_values)
 
         print(f"Processing completed; {len(transactions)} rows added to Google Sheets.")
     else:

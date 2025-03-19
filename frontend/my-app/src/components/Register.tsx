@@ -4,7 +4,7 @@ import axios from 'axios';
 let isRegistered = false;
 
 
-const Register = () => {
+export const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -54,4 +54,3 @@ const Register = () => {
   );
 };
 
-export default Register;
