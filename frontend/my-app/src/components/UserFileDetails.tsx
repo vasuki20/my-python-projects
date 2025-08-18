@@ -23,6 +23,24 @@ export const UserFileDetails = () => {
             fetchFileDetails();
         }
     }, [fileId]);
+    
+
+    const handleDeleteFile = async () => {
+        if (!fileId) return; // Should not happen if fileId is from useParams
+
+        const confirmDelete = window.confirm('Are you sure you want to delete this file? This action cannot be undone.');
+
+        if (confirmDelete) {
+            try {
+                await apiRequest('DELETE', `/user-files/${fileId}`);
+                alert('File deleted successfully!');
+                navigate('/files'); // Redirect to the files list page
+            } catch (error) {
+                console.error('Error deleting file:', error as any);
+                alert('Failed to delete file. Please try again.');
+            }
+        }
+    };
 
     if (!fileDetails) return <div className="flex justify-center items-center min-h-screen text-xl font-semibold text-gray-700">Loading...</div>;
     if (fileDetails.error) return <div className="flex flex-col items-center justify-center min-h-screen bg-red-100 p-4"><p className="text-red-600 text-lg">{fileDetails.error}</p><button onClick={() => navigate('/files')} className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Go Back</button></div>;
@@ -30,7 +48,7 @@ export const UserFileDetails = () => {
 
     return (
         <div className="container mx-auto p-6 bg-white rounded-lg shadow-xl mt-10">
-            <h2 className="text-3xl font-extrabold mb-6 text-center text-gray-900">File Upload Details</h2>
+            <h2 className="text-3xl font-extrabold mb-6 text-gray-900">File Upload Details</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div>
                     <p className="text-lg text-gray-700"><strong className="text-gray-800">File Format:</strong> {fileDetails.file_format}</p>
@@ -61,9 +79,15 @@ export const UserFileDetails = () => {
                     </tbody>
                 </table>
             </div>
-            <div className="flex justify-center mt-8">
-                <button onClick={() => navigate('/files')} className="px-8 py-3 bg-blue-600 rounded-md shadow-sm text-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    Back to Files
+            <div className="flex justify-center mt-8 space-x-4"> {/* Added space-x-4 for spacing */}
+                <button
+                    onClick={handleDeleteFile}
+                    className="px-8 py-3 bg-red-600 rounded-lg shadow-md text-lg font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out"
+                >
+                    Delete File
+                </button>
+                <button onClick={() => navigate('/files')} className="px-8 py-3 bg-gray-500 rounded-lg shadow-md text-lg font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out">
+                    Back
                 </button>
             </div>
         </div>

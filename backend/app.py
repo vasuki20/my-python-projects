@@ -11,6 +11,9 @@ import pandas as pd
 import csv
 from datetime import datetime
 import openpyxl
+import pdfplumber
+import pandas as pd
+import re
 
 from gevent.pool import pass_value
 
@@ -63,8 +66,11 @@ class Transaction(db.Model):
 with app.app_context():
     # db.drop_all()  # Deletes all tables
     db.create_all()  # Recreates tables with the new schema
+    
+    
     if BankFileFormat.query.count() == 0:
         db.session.add(BankFileFormat(name='DBS Savings Account (CSV)'))
+        db.session.add(BankFileFormat(name='DBS Credit Card (PDF)'))
         db.session.add(BankFileFormat(name='Standard Chartered Credit Card (XSLX)'))
         db.session.commit()
 
@@ -131,6 +137,7 @@ def _get_user_file(f):
 
 @app.route("/user-files", methods=["GET"])
 @app.route("/user-files/<int:user_file_id>", methods=["GET"])
+@app.route("/user-files/<int:user_file_id>", methods=["DELETE"])
 @jwt_required()
 def get_user_files(user_file_id=None):
     user = get_current_user()
@@ -138,8 +145,19 @@ def get_user_files(user_file_id=None):
         return jsonify({"message": "User not found"}), 404
 
     if user_file_id:
-        f = UserFile.query.filter_by(id=user_file_id, user_id=user.id).first()
-        return jsonify(_get_user_file(f))
+        if request.method == 'GET':
+            f = UserFile.query.filter_by(id=user_file_id, user_id=user.id).first()
+            return jsonify(_get_user_file(f))
+        elif request.method == 'DELETE':
+            Transaction.query.filter_by(user_file_id=user_file_id).delete()
+            user_file = UserFile.query.filter_by(id=user_file_id, user_id=user.id)
+            os.remove(user_file.first().file_url)
+            user_file.delete()
+            db.session.commit()
+            return jsonify({"message": "File deletion success"}), 200
+        else:
+            return f"invalid request", 400
+
     else:
         file_uploads = UserFile.query.filter_by(user_id=user.id).all()
         result = []
@@ -174,11 +192,14 @@ def upload_user_file():
     try:
         user_file = UserFile(user_id=user.id, bank_file_format_id=bank_file_format_id, file_url=filename)
         db.session.add(user_file)
+        db.session.commit()
 
         if bank_file_format_id == 1:
-            parse_dbs_transactions(user_file.user_id, filename)
+            parse_dbs_csv_transactions(user_file.id, filename)
         elif bank_file_format_id == 2:
-            parse_sc_transactions(user_file.user_id, filename)
+            parse_sc_transactions(user_file.id, filename)
+        elif bank_file_format_id == 3:
+            parse_dbs_pdf_transactions(user_file.id, filename)
     except Exception as e:
         print(e)
         print(traceback.format_exc())
@@ -188,7 +209,7 @@ def upload_user_file():
         # pass
         # todo: to remove the file in case any error happens
 
-
+    print("befopre commit")
     db.session.commit()
 
     # return jsonify({"message": "File uploaded and processed", "file_id": new_upload.id})
@@ -198,7 +219,19 @@ def parse_date(date_str):
     """Convert a date string to a datetime object."""
     return datetime.strptime(date_str, '%d %b %Y')
 
-def parse_dbs_transactions(user_file_id, file_path):
+def parse_dbs_pdf_date(date_str):
+    """Convert a date string to a datetime object."""
+    return datetime.strptime(date_str, '%d %b')
+
+def parse_sc_date(date_str):
+    try:
+        # Use pandas to parse dates as it's more robust and can handle multiple formats
+        return datetime.strptime(date_str, '%d %b')
+    except Exception as e:
+        print(f"Error parsing date: {e}")
+        return None
+
+def parse_dbs_csv_transactions(user_file_id, file_path):
     # Check if the file exists
     if not os.path.exists(file_path):
         print(f"File not found: {file_path}")
@@ -228,6 +261,53 @@ def parse_dbs_transactions(user_file_id, file_path):
                     if os.path.exists(file_path):
                         os.remove(file_path)
                     return f"An error occurred: {str(e)}", 500
+
+
+def parse_dbs_pdf_transactions(user_file_id, file_path):
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        print(f"File not found: {file_path}")
+        return "File not found", 400
+    
+    transactions = []
+    with pdfplumber.open(file_path) as pdf_file:
+        # Loop through each page of the PDF
+        for page in pdf_file.pages:
+            text = page.extract_text()
+
+            # Split the text into individual lines
+            lines = text.split('\n')
+
+            # Define a regex pattern to find transaction lines
+            # A transaction line starts with a date (e.g., "DD MMM") and ends with a dollar amount
+            # The pattern is: Date (DD MMM) + Description + Amount ($) + optional 'CR'
+            pattern = re.compile(r'(\d{2} [A-Z]{3})\s+([A-Z\s\d.-/]+?)\s+([\d,]+\.\d{2})\s*(CR)?')
+
+            for line in lines:
+                match = pattern.search(line.strip())
+                if match:
+                    # Extract date, description, amount, and type (Credit/Debit)
+                    date = match.group(1)
+                    description = match.group(2).strip()
+                    amount = float(match.group(3).replace(',', ''))
+
+                    # Check if it's a credit or debit based on the 'CR' at the end of the line
+                    is_credit = bool(match.group(4))
+                    if is_credit:
+                        amount = amount * -1
+
+                    transaction = Transaction(
+                        transaction_date=parse_dbs_pdf_date(date),
+                        amount=amount,
+                        remarks_1=description,
+                        user_file_id=user_file_id
+                    )
+                    print("inserting")
+                    print(transaction)
+
+                    db.session.add(transaction)
+
+    
 
 #  parse standard charted bank xlxs file
 
@@ -263,13 +343,7 @@ column_indexs = {
     }
 }
 
-def parse_sc_date(date_str):
-    try:
-        # Use pandas to parse dates as it's more robust and can handle multiple formats
-        return pd.to_datetime(date_str, errors='coerce', dayfirst=True).strftime('%Y-%m-%d')
-    except Exception as e:
-        print(f"Error parsing date: {e}")
-        return None
+
 
 def parse_sc_transactions(user_file_id, file_path):
     xls = pd.ExcelFile(file_path, engine='openpyxl')
@@ -333,7 +407,7 @@ def parse_sc_transactions(user_file_id, file_path):
                     # transactions.append([date, amount, description])
 
                     transaction = Transaction(
-                        transaction_date=parse_date(date),
+                        transaction_date=transaction_date,
                         amount=amount,
                         remarks_1=description,
                         user_file_id=user_file_id

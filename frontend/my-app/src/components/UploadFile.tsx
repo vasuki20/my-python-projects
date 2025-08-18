@@ -77,12 +77,18 @@ export const UploadFile = () => {
                             className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-cyan-500 focus:border-cyan-500 transition duration-150 ease-in-out text-lg placeholder-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-cyan-500 file:text-white file:cursor-pointer hover:file:bg-cyan-600"
                         />
                     </div>
-                    <button
-                        onClick={handleUpload}
-                        className="w-full flex justify-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-cyan-500 hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition duration-150 ease-in-out"
-                    >
-                        Upload
-                    </button>
+                    <div className="flex justify-center mt-8 space-x-4"> {/* Added space-x-4 for spacing */}
+                        <button
+                            onClick={handleUpload}
+                            className="w-full flex justify-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-cyan-500 hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition duration-150 ease-in-out"
+                        >
+                            Upload
+                        </button>
+                        <button onClick={() => navigate('/files')} className="px-8 py-3 bg-gray-500 rounded-lg shadow-md text-lg font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out">
+                            Back
+                        </button>
+                    </div>
+                    
                 </div>
             </div>
         </div>
