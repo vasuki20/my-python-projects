@@ -3,7 +3,7 @@ import { apiRequest } from '../utils/apiUtil';
 import { useParams, useNavigate } from 'react-router-dom';
 
 // Component to view a single file upload
-export const ViewFileUpload = () => {
+export const UserFileDetails = () => {
     const { fileId } = useParams<{ fileId: string }>(); // Get fileId from URL
     const [fileDetails, setFileDetails] = useState<any>(null);
     const navigate = useNavigate();
@@ -11,7 +11,7 @@ export const ViewFileUpload = () => {
     useEffect(() => {
         const fetchFileDetails = async () => {
             try {
-                const data = await apiRequest('GET', `/file-uploads/${fileId}`);
+                const data = await apiRequest('GET', `/user-files/${fileId}`);
                 setFileDetails(data);
             } catch (error) {
                 console.error('Error fetching file details:', error);

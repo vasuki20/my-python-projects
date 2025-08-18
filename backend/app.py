@@ -1,3 +1,5 @@
+import traceback
+
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -8,6 +10,7 @@ import os
 import pandas as pd
 import csv
 from datetime import datetime
+import openpyxl
 
 from gevent.pool import pass_value
 
@@ -33,15 +36,15 @@ class User(db.Model):
     password = db.Column(db.String(200), nullable=False)
 
 
-class FileFormat(db.Model):
+class BankFileFormat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
 
 
-class FileUpload(db.Model):
+class UserFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    file_format_id = db.Column(db.Integer, db.ForeignKey('file_format.id'), nullable=False)
+    bank_file_format_id = db.Column(db.Integer, db.ForeignKey('bank_file_format.id'), nullable=False)
     file_url = db.Column(db.String(200), nullable=False)
     created_on = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -52,7 +55,7 @@ class Transaction(db.Model):
     amount = db.Column(db.Float, nullable=False)
     remarks_1 = db.Column(db.String(200))
     remarks_2 = db.Column(db.String(200))
-    file_upload_id = db.Column(db.Integer, db.ForeignKey('file_upload.id'), nullable=False)
+    user_file_id = db.Column(db.Integer, db.ForeignKey('user_file.user_id'), nullable=False)
     created_on = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -60,9 +63,9 @@ class Transaction(db.Model):
 with app.app_context():
     # db.drop_all()  # Deletes all tables
     db.create_all()  # Recreates tables with the new schema
-    if FileFormat.query.count() == 0:
-        db.session.add(FileFormat(name='DBS Savings Account'))
-        db.session.add(FileFormat(name='Standard Chartered Credit Card'))
+    if BankFileFormat.query.count() == 0:
+        db.session.add(BankFileFormat(name='DBS Savings Account (CSV)'))
+        db.session.add(BankFileFormat(name='Standard Chartered Credit Card (XSLX)'))
         db.session.commit()
 
 
@@ -94,7 +97,7 @@ def login():
         access_token = create_access_token(identity=user.email)
         refresh_token = create_refresh_token(identity=user.email)
         return jsonify(access_token=access_token, refresh_token=refresh_token)
-    return jsonify({"message": "Invalid credentials"}), 401
+    return jsonify({"error": "Invalid email or password"}), 401
 
 
 def get_current_user():
@@ -102,14 +105,14 @@ def get_current_user():
     user_email = get_jwt_identity()
     return User.query.filter_by(email=user_email).first()
 
-@app.route("/file-formats", methods=["GET"])
-def get_file_formats():
-    formats = FileFormat.query.all()
-    return jsonify([{"id": f.id, "name": f.name} for f in formats])
+@app.route("/bank-file-formats", methods=["GET"])
+def get_bank_file_formats():
+    bank_file_formats = BankFileFormat.query.all()
+    return jsonify([{"id": bff.id, "name": bff.name} for bff in bank_file_formats])
 
 
-def _get_file_upload(f):
-    transactions = Transaction.query.filter_by(file_upload_id=f.id).all()
+def _get_user_file(f):
+    transactions = Transaction.query.filter_by(user_file_id=f.id).all()
     transactions_data = [{
         "id": t.id,
         "transaction_date": t.transaction_date.strftime('%Y-%m-%d'),
@@ -120,91 +123,232 @@ def _get_file_upload(f):
 
     return {
             "id": f.id,
-            "file_format": FileFormat.query.get(f.file_format_id).name,
+            "file_format": BankFileFormat.query.get(f.bank_file_format_id).name,
             "file_url": f.file_url,
             "created_on": f.created_on.strftime('%Y-%m-%d'),
             "transactions": transactions_data
         }
 
-@app.route("/file-uploads", methods=["GET"])
-@app.route("/file-uploads/<int:file_id>", methods=["GET"])
+@app.route("/user-files", methods=["GET"])
+@app.route("/user-files/<int:user_file_id>", methods=["GET"])
 @jwt_required()
-def get_file_uploads(file_id=None):
+def get_user_files(user_file_id=None):
     user = get_current_user()
     if not user:
         return jsonify({"message": "User not found"}), 404
 
-    if file_id:
-        f = FileUpload.query.filter_by(id=file_id, user_id=user.id).first()
-        return jsonify(_get_file_upload(f))
+    if user_file_id:
+        f = UserFile.query.filter_by(id=user_file_id, user_id=user.id).first()
+        return jsonify(_get_user_file(f))
     else:
-        file_uploads = FileUpload.query.filter_by(user_id=user.id).all()
+        file_uploads = UserFile.query.filter_by(user_id=user.id).all()
         result = []
         for f in file_uploads:
-            result.append(_get_file_upload(f))
+            result.append(_get_user_file(f))
 
         return jsonify(result)
 
-@app.route("/upload", methods=["POST"])
+@app.route("/upload-user-file", methods=["POST"])
 @jwt_required()
-def upload_file():
+def upload_user_file():
     user = get_current_user()
     if 'file' not in request.files:
         return jsonify({"message": "No file uploaded"}), 400
 
     file = request.files['file']
-    file_format_id = request.form.get('file_format_id')
+    bank_file_format_id = request.form.get('bank_file_format_id')
 
-    if not file_format_id or not file_format_id.isdigit():
+    if not bank_file_format_id or not bank_file_format_id.isdigit():
         return jsonify({"message": "Invalid file format"}), 400
 
-    file_format_id = int(file_format_id)
-    filename = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
+    bank_file_format_id = int(bank_file_format_id)
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    filename = os.path.join(app.config['UPLOAD_FOLDER'], f"{timestamp}_{file.filename}")
     file.save(filename)
 
-    try:
-        new_upload = FileUpload(user_id=user.id, file_format_id=file_format_id, file_url=filename)
-        db.session.add(new_upload)
+    # After saving, you might want to check if the file was actually saved
+    if not os.path.exists(filename):
+        return jsonify({"message": "Failed to save the file"}), 500
 
-        if file_format_id == 1:
-            parse_dbs_transactions(new_upload.id, filename)
-        elif file_format_id == 2:
-            parse_sc_transactions(new_upload.id, filename)
+
+    try:
+        user_file = UserFile(user_id=user.id, bank_file_format_id=bank_file_format_id, file_url=filename)
+        db.session.add(user_file)
+
+        if bank_file_format_id == 1:
+            parse_dbs_transactions(user_file.user_id, filename)
+        elif bank_file_format_id == 2:
+            parse_sc_transactions(user_file.user_id, filename)
     except Exception as e:
-        pass
+        print(e)
+        print(traceback.format_exc())
+        if os.path.exists(filename):
+            os.remove(filename)
+        return f"An error occurred: {str(e)}", 500
+        # pass
         # todo: to remove the file in case any error happens
 
 
     db.session.commit()
 
-    return jsonify({"message": "File uploaded and processed", "file_id": new_upload.id})
+    # return jsonify({"message": "File uploaded and processed", "file_id": new_upload.id})
+    return jsonify({"message": "File uploaded and processed"})
 
+def parse_date(date_str):
+    """Convert a date string to a datetime object."""
+    return datetime.strptime(date_str, '%d %b %Y')
 
-def parse_dbs_transactions(file_upload_id, file_path):
+def parse_dbs_transactions(user_file_id, file_path):
+    # Check if the file exists
+    if not os.path.exists(file_path):
+        print(f"File not found: {file_path}")
+        return "File not found", 400
+
     transactions = []
-    with open(file_path, mode='r', newline='') as csvfile:
-        reader = csv.reader(csvfile)
+    with open(file_path, 'r', newline='' , encoding='utf-8') as csvfile:
+        reader = csv.reader((line for line in csvfile if line.strip()), delimiter=',')
         next(reader)
-        for row in reader:
-            date = datetime.strptime(row[0].strip(), '%Y-%m-%d')
-            debit = float(row[2].strip()) if row[2].strip() else 0.0
-            credit = float(row[3].strip()) if row[3].strip() else 0.0
-            amount = credit - debit
-            remarks = row[4].strip()
-            transaction = Transaction(transaction_date=date, amount=amount, remarks_1=remarks,
-                                      file_upload_id=file_upload_id)
-            db.session.add(transaction)
+        for row_number, row in enumerate(reader, start=2):  # Start from row 2 for Google Sheets
+            if len(row) >= 8:
+                try:
+                    date = row[0].strip()
+                    debit = float(row[2].strip()) if row[2].strip() else 0.0
+                    credit = float(row[3].strip()) if row[3].strip() else 0.0
+                    amount = credit - debit
+                    remarks = row[4].strip()
+                    transaction = Transaction(
+                        transaction_date=parse_date(date),
+                        amount=amount,
+                        remarks_1=remarks,
+                        user_file_id=user_file_id
+                    )
+
+                    db.session.add(transaction)
+                except Exception as e:
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    return f"An error occurred: {str(e)}", 500
+
+#  parse standard charted bank xlxs file
+
+# Function to process amount and handle 'CR'
+def process_amount(value):
+    """Convert 'CR' to positive (credited) and others to negative (debited)."""
+    if isinstance(value, str) and "CR" in value:
+        value = value.replace(',', '').replace('CR', '').strip()
+        return abs(float(value.strip()))
+    try:
+        return -abs(float(value))  # Debit amounts are negative
+    except ValueError:
+        return 0.0  # Handle errors gracefully
+
+# Read all sheets from the XLSX file
 
 
-def parse_sc_transactions(file_upload_id, file_path):
-    df = pd.read_excel(file_path, engine='openpyxl')
-    for _, row in df.iterrows():
-        date = datetime.strptime(row.iloc[0], '%d %b')
-        description = row.iloc[2]
-        amount = float(row.iloc[4]) if pd.notna(row.iloc[4]) else 0.0
-        transaction = Transaction(transaction_date=date, amount=amount, remarks_1=description,
-                                  file_upload_id=file_upload_id)
-        db.session.add(transaction)
+required_columns = {'Posting Date', 'Description'}  # Set for quick comparison
+
+# Column indexes for Table 1 and Table 2
+column_indexs = {
+    "Table 1": {
+        "transaction_date": 0,
+        "description_1": 3,
+        "description_2": 10,
+        "amount": 14,
+    },
+    "Table 2": {
+        "transaction_date": 0,
+        "description_1": 2,
+        "description_2": 3,
+        "amount": 4,
+    }
+}
+
+def parse_sc_date(date_str):
+    try:
+        # Use pandas to parse dates as it's more robust and can handle multiple formats
+        return pd.to_datetime(date_str, errors='coerce', dayfirst=True).strftime('%Y-%m-%d')
+    except Exception as e:
+        print(f"Error parsing date: {e}")
+        return None
+
+def parse_sc_transactions(user_file_id, file_path):
+    xls = pd.ExcelFile(file_path, engine='openpyxl')
+    # Process each sheet
+    for sheet_name in xls.sheet_names:
+        print(f"Processing sheet: {sheet_name}")
+        if False and not sheet_name == 'Table 2':
+            print("skipping {}".format(sheet_name))
+            continue
+
+        df = pd.read_excel(xls, sheet_name=sheet_name, engine='openpyxl')
+        column_indexs = {
+            "Table 1": {
+                "transaction_date": 0,
+                "description_1": 3,
+                "description_2": 10,
+                "amount": 14,
+            },
+            "Table 2": {
+                "transaction_date": 0,
+                "description_1": 2,
+                "description_2": 3,
+                "amount": 4,
+            }
+        }
+        transactions = []
+        if sheet_name in column_indexs:
+            for idx, row in df.iterrows():
+                try:
+                    raw_date= row.iloc[column_indexs[sheet_name]['transaction_date']]
+                    transaction_date = parse_sc_date(str(raw_date))  # Expects format like "16 Nov"
+                    if not transaction_date:
+                        print(f"Failed to parse date {raw_date} in row {idx + 1} of {sheet_name}")
+                        continue
+                except ValueError:
+                    transaction_date = None
+                except TypeError:
+                    transaction_date = None
+                if transaction_date:
+                    values = []
+                    # Convert date properly
+                    if isinstance(transaction_date, str):
+                        try:
+                            transaction_date = datetime.strptime(transaction_date, "%d %b").strftime(
+                                '%Y-%m-%d')  # Format like "16 Nov"
+                        except ValueError:
+                            print(f"Invalid date format in row {idx + 2} of {sheet_name}: {transaction_date}")
+                            transaction_date = ""
+                    elif pd.notna(transaction_date):
+                        transaction_date = pd.to_datetime(transaction_date, errors='coerce').strftime('%Y-%m-%d')
+                    else:
+                        transaction_date = ""
+
+                    date = transaction_date
+                    description = row.iloc[column_indexs[sheet_name]['description_1']]
+                    values.append(description)
+                    money = row.iloc[column_indexs[sheet_name]['amount']]
+                    # Process amount correctly
+                    if money != "nan" or money != " ":
+                        amount = process_amount(money)
+                    # transactions.append([date, amount, description])
+
+                    transaction = Transaction(
+                        transaction_date=parse_date(date),
+                        amount=amount,
+                        remarks_1=description,
+                        user_file_id=user_file_id
+                    )
+
+                    db.session.add(transaction)
+
+    # df = pd.read_excel(file_path, engine='openpyxl')
+    # for _, row in df.iterrows():
+    #     date = datetime.strptime(row.iloc[0], '%d %b')
+    #     description = row.iloc[2]
+    #     amount = float(row.iloc[4]) if pd.notna(row.iloc[4]) else 0.0
+    #     transaction = Transaction(transaction_date=date, amount=amount, remarks_1=description,
+    #                               user_file_id=user_file_id)
+    #     db.session.add(transaction)
 
 
 if __name__ == "__main__":

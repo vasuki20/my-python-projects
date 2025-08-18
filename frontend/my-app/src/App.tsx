@@ -2,9 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useEffect, useState } from "react";
 import { Login } from "./components/Login";
 import { Register } from "./components/Register";
-import { FileUploads } from "./components/FileUploads";
+import { UserFiles } from "./components/UserFiles";
 import { UploadFile } from "./components/UploadFile";
-import { ViewFileUpload } from "./components/ViewFileUpload";
+import { UserFileDetails } from "./components/UserFileDetails";
 
 import "./App.css";
 
@@ -33,9 +33,9 @@ function App() {
         <Route path="/register" element={<Register />} />
 
         {/* File Uploads Routes */}
-        <Route path="/files" element={<ProtectedRoute><FileUploads /></ProtectedRoute>} />
+        <Route path="/files" element={<ProtectedRoute><UserFiles /></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute><UploadFile /></ProtectedRoute>} />
-        <Route path="/file/:fileId" element={<ProtectedRoute><ViewFileUpload /></ProtectedRoute>} />
+        <Route path="/file/:fileId" element={<ProtectedRoute><UserFileDetails /></ProtectedRoute>} />
       </Routes>
     </Router>
   );

@@ -12,7 +12,7 @@ export const UploadFile = () => {
     useEffect(() => {
         const fetchFileFormats = async () => {
             try {
-                const formats = await apiRequest('GET', '/file-formats');
+                const formats = await apiRequest('GET', '/bank-file-formats');
                 setFileFormats(formats);
             } catch (error) {
                 console.error('Error fetching file formats:', error);
@@ -29,15 +29,15 @@ export const UploadFile = () => {
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('file_format_id', selectedFormat);
+        formData.append('bank_file_format_id', selectedFormat);
 
         try {
-            await apiRequest('POST', '/upload', formData, true); // Pass true to indicate FormData request
-            alert('File uploaded successfully');
+            await apiRequest('POST', '/upload-user-file', formData, true); // Pass true to indicate FormData request
+//             alert('File uploaded successfully');
             navigate('/files');
         } catch (error) {
             console.error('Error uploading file:', error);
-            alert('Failed to upload file. Please try again.');
+//             alert('Failed to upload file. Please try again.');
         }
     };
 

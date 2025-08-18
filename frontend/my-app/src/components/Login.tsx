@@ -30,7 +30,7 @@ export const Login = () => {
             const response = await axios.post('http://127.0.0.1:5000/login', { email, password });
             localStorage.setItem('token', response.data.access_token);
             localStorage.setItem('refreshToken', response.data.refresh_token);
-            navigate('/'); // Redirect to /
+            navigate('/files'); // Redirect to /
         } catch (error) {
             console.error('Login failed:', error);
         }

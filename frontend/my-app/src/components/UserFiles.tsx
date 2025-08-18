@@ -3,20 +3,20 @@ import { apiRequest } from '../utils/apiUtil';
 import { useNavigate } from 'react-router-dom';
 
 // Component to display all file uploads
-export const FileUploads = () => {
-    const [fileUploads, setFileUploads] = useState([]);
+export const UserFiles = () => {
+    const [userFiles, setUserFiles] = useState([]);
     const navigate = useNavigate();
 
     useEffect(() => {
-        const fetchFileUploads = async () => {
+        const fetchUserFiles = async () => {
             try {
-                const data = await apiRequest('GET', '/file-uploads');
-                setFileUploads(data);
+                const data = await apiRequest('GET', '/user-files');
+                setUserFiles(data);
             } catch (error) {
                 console.error('Error fetching file uploads:', error);
             }
         };
-        fetchFileUploads();
+        fetchUserFiles();
     }, []);
 
     return (
@@ -33,7 +33,7 @@ export const FileUploads = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {fileUploads.map(file => (
+                    {userFiles.map(file => (
                         <tr key={file.id}>
                             <td>{file.id}</td>
                             <td>{file.file_format}</td>
