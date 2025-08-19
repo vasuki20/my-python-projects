@@ -1,5 +1,5 @@
 import traceback
-
+import boto3 # Added for AWS Textract
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -23,6 +23,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///expense_tracker.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
+# Ensure upload folder exists
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
@@ -30,6 +31,14 @@ CORS(app)
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
+
+# Initialize AWS Textract client
+# Ensure your AWS credentials are configured (e.g., via environment variables or ~/.aws/credentials)
+try:
+    textract_client = boto3.client('textract')
+except Exception as e:
+    print(f"Error initializing Textract client: {e}")
+    textract_client = None # Handle case where client cannot be initialized
 
 
 # Models
@@ -205,7 +214,7 @@ def upload_user_file():
         print(e)
         print(traceback.format_exc())
         if os.path.exists(filename):
-            os.remove(filename)
+            os.remove(file_path) # Corrected to remove the saved file
         return f"An error occurred: {str(e)}", 500
         # pass
         # todo: to remove the file in case any error happens
@@ -215,6 +224,77 @@ def upload_user_file():
 
     # return jsonify({"message": "File uploaded and processed", "file_id": new_upload.id})
     return jsonify({"message": "File uploaded and processed"})
+
+# --- New Endpoint for Receipt Parsing ---
+@app.route("/parse-receipt", methods=["POST"])
+@jwt_required()
+def parse_receipt():
+    user = get_current_user()
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+
+    if 'receipt' not in request.files:
+        return jsonify({"message": "No receipt file uploaded"}), 400
+
+    receipt_file = request.files['receipt']
+    
+    # Save the file temporarily to process it with Textract
+    # In a real application, you might want to use a more robust temporary file handling
+    temp_filename = f"temp_receipt_{datetime.now().timestamp()}{os.path.splitext(receipt_file.filename)[1]}"
+    temp_filepath = os.path.join('/tmp', temp_filename) # Use /tmp for temporary storage
+    receipt_file.save(temp_filepath)
+
+    extracted_data = {}
+    try:
+        # Use AnalyzeExpense API for receipts
+        response = textract_client.analyze_expense(
+            Document={'Bytes': open(temp_filepath, 'rb').read()}
+        )
+
+        # Process the response to extract relevant information
+        # This is a simplified extraction; Textract's response structure is complex
+        # You'll need to parse 'ExpenseDocuments' and then 'LineItemGroups', 'LineItems', 'SummaryFields'
+        
+        receipt_id = None
+        receipt_date = None
+        total_amount = None
+        currency = None
+
+        if 'ExpenseDocuments' in response and response['ExpenseDocuments']:
+            expense_doc = response['ExpenseDocuments'][0]
+            
+            # Extract Summary Fields (like Total Amount, Date, etc.)
+            if 'SummaryFields' in expense_doc:
+                for field in expense_doc['SummaryFields']:
+                    field_type = field.get('Type', {}).get('Text')
+                    value_detection = field.get('ValueDetection', {})
+                    
+                    if field_type == 'TOTAL_AMOUNT':
+                        total_amount = value_detection.get('Amount')
+                        currency = value_detection.get('Currency')
+                    elif field_type == 'DATE':
+                        receipt_date = value_detection.get('Text')
+                    elif field_type == 'RECEIPT_ID':
+                        receipt_id = value_detection.get('Text')
+
+        extracted_data = {
+            "receipt_id": receipt_id,
+            "date": receipt_date,
+            "amount": total_amount,
+            "currency": currency
+        }
+
+    except Exception as e:
+        print(f"Error processing receipt with Textract: {e}")
+        print(traceback.format_exc())
+        return jsonify({"message": f"Error processing receipt: {str(e)}"}), 500
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+
+    return jsonify(extracted_data)
+
 
 def parse_date(date_str):
     """Convert a date string to a datetime object."""

@@ -5,6 +5,7 @@ import { Register } from "./components/Register";
 import { UserFiles } from "./components/UserFiles";
 import { UploadFile } from "./components/UploadFile";
 import { UserFileDetails } from "./components/UserFileDetails";
+import ReceiptParser from "./components/ReceiptParser"; // Import the new component
 
 import "./App.css";
 import { Header } from "./components/Header";
@@ -40,6 +41,9 @@ function App() {
         <Route path="/files" element={<ProtectedRoute><UserFiles /></ProtectedRoute>} />
         <Route path="/upload" element={<ProtectedRoute><UploadFile /></ProtectedRoute>} />
         <Route path="/file/:fileId" element={<ProtectedRoute><UserFileDetails /></ProtectedRoute>} />
+
+        {/* Receipt Parsing Route */}
+        <Route path="/parse-receipt" element={<ProtectedRoute><ReceiptParser /></ProtectedRoute>} />
       </Routes>
     </Router>
       <Footer />
