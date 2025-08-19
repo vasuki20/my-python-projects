@@ -66,7 +66,7 @@ class Transaction(db.Model):
 with app.app_context():
     # db.drop_all()  # Deletes all tables
     db.create_all()  # Recreates tables with the new schema
-    
+
     
     if BankFileFormat.query.count() == 0:
         db.session.add(BankFileFormat(name='DBS Savings Account (CSV)'))
@@ -132,7 +132,8 @@ def _get_user_file(f):
             "file_format": BankFileFormat.query.get(f.bank_file_format_id).name,
             "file_url": f.file_url,
             "created_on": f.created_on.strftime('%Y-%m-%d'),
-            "transactions": transactions_data
+            "transactions": transactions_data,
+            "no_of_transactions": len(transactions_data)
         }
 
 @app.route("/user-files", methods=["GET"])
@@ -221,7 +222,9 @@ def parse_date(date_str):
 
 def parse_dbs_pdf_date(date_str):
     """Convert a date string to a datetime object."""
-    return datetime.strptime(date_str, '%d %b')
+    dt = datetime.strptime(date_str, "%d %b")
+    return dt.replace(year=datetime.now().year)
+    # return datetime.strptime(date_str, '%d %b')
 
 def parse_sc_date(date_str):
     try:
@@ -288,6 +291,7 @@ def parse_dbs_pdf_transactions(user_file_id, file_path):
                 if match:
                     # Extract date, description, amount, and type (Credit/Debit)
                     date = match.group(1)
+                    print(date)
                     description = match.group(2).strip()
                     amount = float(match.group(3).replace(',', ''))
 

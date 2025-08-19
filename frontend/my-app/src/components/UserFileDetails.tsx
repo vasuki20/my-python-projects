@@ -43,6 +43,25 @@ export const UserFileDetails = () => {
         }
     };
 
+    const handleDownloadFile = async () => {
+        if (!fileId) return; // Should not happen if fileId is from useParams
+
+        const confirmDelete = window.confirm('Are you sure you want to delete this file? This action cannot be undone.');
+
+        if (confirmDelete) {
+            try {
+                await apiRequest('DELETE', `/user-files/${fileId}`);
+                alert('File deleted successfully!');
+                navigate('/files'); // Redirect to the files list page
+            } catch (error) {
+                console.error('Error deleting file:', error as any);
+                alert('Failed to delete file. Please try again.');
+            }
+        }
+    };
+
+
+
     if (!fileDetails) return <div className="flex justify-center items-center min-h-screen text-xl font-semibold text-gray-700">Loading...</div>;
     if (fileDetails.error) return <div className="flex flex-col items-center justify-center min-h-screen bg-red-100 p-4"><p className="text-red-600 text-lg">{fileDetails.error}</p><button onClick={() => navigate('/files')} className="mt-4 px-6 py-3 bg-blue-600 text-white rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Go Back</button></div>;
 
@@ -57,6 +76,14 @@ export const UserFileDetails = () => {
                     {/* Icon for Back */}
                     <span style={{ marginRight: '8px' }}><FaArrowLeft size={20} /></span> {/* Actual back icon */}
                     Back
+                </button>
+                <button
+                    onClick={handleDownloadFile}
+                    className="px-6 py-2 flex items-center bg-red-600 rounded-lg shadow-md text-lg font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out"
+                >
+                    {/* Icon for Delete */}
+                    <span style={{ marginRight: '8px' }}><FaTrash size={20} /></span> {/* Actual delete icon */}
+                    Download File
                 </button>
                 <button
                     onClick={handleDeleteFile}
@@ -88,13 +115,32 @@ export const UserFileDetails = () => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {fileDetails.transactions.map((transaction: any) => (
-                            <tr key={transaction.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{new Date(transaction.transaction_date).toLocaleDateString()}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.amount}</td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{transaction.remarks_1}</td>
-                            </tr>
-                        ))}
+                       {fileDetails.transactions.map((transaction: any) => {
+                        const amount = transaction.amount; // ✅ valid now
+
+                        return (
+                          <tr key={transaction.id}>
+                            {/* Date */}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {new Date(transaction.transaction_date).toLocaleDateString()}
+                            </td>
+
+                            {/* Amount with conditional color */}
+                            <td
+                              className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${
+                                amount < 0 ? "text-green-600" : "text-red-600"
+                              }`}
+                            >
+                               {amount < 0 ? Math.abs(amount) : `-${amount}`}
+                            </td>
+
+                            {/* Remarks */}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {transaction.remarks_1}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                 </table>
             </div>
