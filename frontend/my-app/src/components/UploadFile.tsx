@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { FaFileUpload, FaArrowLeft, FaTimes } from 'react-icons/fa';
 import { apiRequest } from '../utils/apiUtil';
 import { useNavigate } from 'react-router-dom';
 
@@ -78,15 +79,16 @@ export const UploadFile = () => {
                         />
                     </div>
                     <div className="flex justify-center mt-8 space-x-4"> {/* Added space-x-4 for spacing */}
+                        <button onClick={() => navigate('/files')} className="px-8 py-3 flex items-center bg-primary hover:bg-blue-700 rounded-lg shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out">
+                            <span style={{ marginRight: '8px' }}><FaTimes size={20} /></span> Cancel
+                        </button>
                         <button
                             onClick={handleUpload}
-                            className="w-full flex justify-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-cyan-500 hover:bg-cyan-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition duration-150 ease-in-out"
+                            className="w-full flex justify-center items-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition duration-150 ease-in-out"
                         >
-                            Upload
+                            <span style={{ marginRight: '8px' }}><FaFileUpload size={20} /></span> Upload
                         </button>
-                        <button onClick={() => navigate('/files')} className="px-8 py-3 bg-gray-500 rounded-lg shadow-md text-lg font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out">
-                            Back
-                        </button>
+                        
                     </div>
                     
                 </div>

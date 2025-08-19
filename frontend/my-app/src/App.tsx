@@ -7,8 +7,10 @@ import { UploadFile } from "./components/UploadFile";
 import { UserFileDetails } from "./components/UserFileDetails";
 
 import "./App.css";
+import { Header } from "./components/Header";
+import { Footer } from "./components/Footer";
 
-function ProtectedRoute({ children }) {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("token");
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -25,8 +27,10 @@ function App() {
   }, []);
 
   return (
-    <Router>
-      <Routes>
+    <div className="app-container">
+      <Header />
+      <Router>
+        <Routes>
         {/* Redirect to /dashboard if logged in, otherwise to /login */}
         <Route path="/" element={isAuthenticated ? <Navigate to="/files" replace /> : <Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
@@ -38,6 +42,8 @@ function App() {
         <Route path="/file/:fileId" element={<ProtectedRoute><UserFileDetails /></ProtectedRoute>} />
       </Routes>
     </Router>
+      <Footer />
+    </div>
   );
 }
 

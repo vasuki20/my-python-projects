@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState } from 'react';
 import axios from 'axios';
+import { FaUserPlus, FaSignInAlt } from 'react-icons/fa';
 
 // Note: The 'isRegistered' global variable might cause issues in concurrent rendering or server-side rendering.
 // It's generally better to manage state within the component or use context.
@@ -72,17 +73,17 @@ export const Register = () => {
           )}
           <button
             type="submit"
-            className="w-full flex justify-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
+            className="w-full flex justify-center items-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
           >
-            Register
+            <span style={{ marginRight: '8px' }}><FaUserPlus size={20} /></span> Register
           </button>
           {isRegistered && (
             <button
               type="button"
               onClick={goToLogin}
-              className="w-full mt-4 flex justify-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-gray-500 hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out"
+              className="w-full mt-4 flex justify-center items-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out"
             >
-              Go to Login
+              <span style={{ marginRight: '8px' }}><FaSignInAlt size={20} /></span> Go to Login
             </button>
           )}
         </form>

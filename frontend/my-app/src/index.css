@@ -28,8 +28,7 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
+  /* display: flex; */
   min-width: 320px;
   min-height: 100vh;
 }
@@ -69,4 +68,16 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* Styles for sticky footer */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Ensure the main content area grows to fill available space */
+.app-container > *:not(header):not(footer) {
+  flex-grow: 1;
 }

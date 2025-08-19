@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { FaArrowLeft, FaTrash } from 'react-icons/fa';
 import { apiRequest } from '../utils/apiUtil';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -48,7 +49,25 @@ export const UserFileDetails = () => {
 
     return (
         <div className="container mx-auto p-6 bg-white rounded-lg shadow-xl mt-10">
-            <h2 className="text-3xl font-extrabold mb-6 text-gray-900">File Upload Details</h2>
+            <div className="flex justify-between items-center mt-2">
+                <button
+                    onClick={() => navigate('/files')}
+                    className="px-6 py-2 flex items-center bg-primary hover:bg-blue-700 rounded-lg shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
+                >
+                    {/* Icon for Back */}
+                    <span style={{ marginRight: '8px' }}><FaArrowLeft size={20} /></span> {/* Actual back icon */}
+                    Back
+                </button>
+                <button
+                    onClick={handleDeleteFile}
+                    className="px-6 py-2 flex items-center bg-red-600 rounded-lg shadow-md text-lg font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out"
+                >
+                    {/* Icon for Delete */}
+                    <span style={{ marginRight: '8px' }}><FaTrash size={20} /></span> {/* Actual delete icon */}
+                    Delete File
+                </button>
+            </div>
+            <h2 className="text-3xl font-extrabold mt-8 mb-6 text-gray-900">File Upload Details</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <div>
                     <p className="text-lg text-gray-700"><strong className="text-gray-800">File Format:</strong> {fileDetails.file_format}</p>
@@ -78,17 +97,6 @@ export const UserFileDetails = () => {
                         ))}
                     </tbody>
                 </table>
-            </div>
-            <div className="flex justify-center mt-8 space-x-4"> {/* Added space-x-4 for spacing */}
-                <button
-                    onClick={handleDeleteFile}
-                    className="px-8 py-3 bg-red-600 rounded-lg shadow-md text-lg font-semibold hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out"
-                >
-                    Delete File
-                </button>
-                <button onClick={() => navigate('/files')} className="px-8 py-3 bg-gray-500 rounded-lg shadow-md text-lg font-semibold hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out">
-                    Back
-                </button>
             </div>
         </div>
     );

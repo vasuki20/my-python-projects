@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { FaFileUpload, FaEye } from 'react-icons/fa';
 import { apiRequest } from '../utils/apiUtil';
 import { useNavigate } from 'react-router-dom';
 
@@ -27,9 +28,9 @@ export const UserFiles = () => {
             <div className="flex justify-end mb-6">
                 <button
                     onClick={() => navigate('/upload')}
-                    className="px-6 py-3 bg-blue-600 rounded-md shadow-sm text-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="px-6 py-3 flex items-center bg-primary hover:bg-blue-700 rounded-md shadow-sm text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                    Upload New File
+                    <span style={{ marginRight: '8px' }}><FaFileUpload size={20} /></span> Upload New File
                 </button>
             </div>
             <div className="overflow-x-auto">
@@ -51,9 +52,9 @@ export const UserFiles = () => {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <button
                                         onClick={() => navigate(`/file/${file.id}`)}
-                                        className="text-blue-600 hover:text-blue-900 hover:underline focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded"
+                                        className="flex items-center text-primary hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded"
                                     >
-                                        View Details
+                                        <span style={{ marginRight: '8px' }}><FaEye size={20} /></span> View Details
                                     </button>
                                 </td>
                             </tr>

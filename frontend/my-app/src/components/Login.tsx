@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from "axios";
 import { Link, useNavigate } from 'react-router-dom';
+import { FaSignInAlt, FaUserPlus } from 'react-icons/fa';
 
 export const Login = () => {
   const [email, setEmail] = useState("");
@@ -75,15 +76,15 @@ export const Login = () => {
           )}
           <button
             type="submit"
-            className="w-full flex justify-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
+            className="w-full flex justify-center items-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
           >
-            Login
+            <span style={{ marginRight: '8px' }}><FaSignInAlt size={20} /></span> Login
           </button>
         </form>
         <p className="text-base text-center mt-8 text-gray-600">
           Don't have an account?
-          <Link to="/register" className="ml-1 font-medium text-indigo-600 hover:text-indigo-800 hover:underline transition duration-150 ease-in-out">
-            Register here
+          <Link to="/register" className="ml-1 float-right font-medium text-primary hover:text-blue-700 hover:underline transition duration-150 ease-in-out flex items-center">
+            <span style={{ marginRight: '8px' }}><FaUserPlus size={20} /></span> Register here
           </Link>
         </p>
       </div>
