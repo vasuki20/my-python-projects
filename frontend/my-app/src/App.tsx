@@ -28,8 +28,8 @@ function App() {
 
   return (
     <div className="app-container">
-      <Header />
       <Router>
+        <Header />
         <Routes>
         {/* Redirect to /dashboard if logged in, otherwise to /login */}
         <Route path="/" element={isAuthenticated ? <Navigate to="/files" replace /> : <Navigate to="/login" replace />} />
