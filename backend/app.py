@@ -14,7 +14,7 @@ import pdfplumber  # DBS PDF Reader
 import pandas as pd  # Standard chart XLSV Readers
 import re
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from dateutil import parser as dateparser
 
 from gevent.pool import pass_value
@@ -247,61 +247,103 @@ def upload_user_file():
 @app.route("/parse-receipt", methods=["POST"])
 @jwt_required()
 def parse_receipt():
+    """
+    Handles receipt file upload, sends it to Amazon Textract for analysis,
+    and returns structured expense data.
+    """
     user = get_current_user()
     if not user:
         return jsonify({"message": "User not found"}), 404
 
     f = request.files.get("receipt")
-
     if not f:
         return jsonify({"message": "No receipt file uploaded"}), 400
 
-    file_bytes = f.read()  # read directly; no need to save to /tmp
+    file_bytes = f.read()
     try:
+        # Call Amazon Textract API
         resp = textract_client.analyze_expense(Document={"Bytes": file_bytes})
-
     except Exception as e:
         return jsonify({"message": f"Error calling Textract: {e}"}), 500
 
-    # --- Parse AnalyzeExpense response ---
-    receipt_id = None
-    receipt_date = None
-    total_amount = None
-    currency = None
-
+    # --- Start of the updated parsing logic ---
     try:
         docs = resp.get("ExpenseDocuments", [])
-        if docs:
-            summary = docs[0].get("SummaryFields", [])
+        if not docs:
+            return jsonify({"message": "No expense documents found in the response."}), 400
 
-            def _get(type_name: str):
-                for sf in summary:
-                    if (sf.get("Type") or {}).get("Text") == type_name:
-                        vd = sf.get("ValueDetection") or {}
-                        return vd.get("Text")
-                return None
+        summary = docs[0].get("SummaryFields", [])
 
-            # Common keys returned by AnalyzeExpense
-            total_text = _get("TOTAL") or _get("AMOUNT_DUE") or _get("GRAND_TOTAL")
-            date_text = _get("INVOICE_RECEIPT_DATE") or _get("PURCHASE_DATE") or _get("DUE_DATE")
-            currency = _get("CURRENCY") or _get("CURRENCY_CODE")
-            receipt_id = _get("INVOICE_RECEIPT_ID") or _get("INVOICE_ID") or _get("REFERENCE_NUMBER")
+        # Helper function to find a field's value by its type
+        def _get(type_name: str):
+            for sf in summary:
+                if (sf.get("Type") or {}).get("Text") == type_name:
+                    return (sf.get("ValueDetection") or {}).get("Text")
+            return None
 
-            if total_text:
+        # 1. Define more comprehensive key lists (ordered by priority)
+        TOTAL_KEYS = ["TOTAL", "GRAND_TOTAL", "AMOUNT_DUE", "TOTAL_DUE", "AMOUNT"]
+        DATE_KEYS = ["INVOICE_RECEIPT_DATE", "PURCHASE_DATE", "TRANSACTION_DATE", "DATE", "DUE_DATE"]
+        RECEIPT_ID_KEYS = ["INVOICE_RECEIPT_ID", "RECEIPT_NO", "INVOICE_ID", "REFERENCE_NUMBER"]
+        VENDOR_KEYS = ["VENDOR_NAME", "MERCHANT_NAME", "STORE_NAME", "VENDOR"]
+        CURRENCY_KEYS = ["CURRENCY", "CURRENCY_CODE"]
+
+        # Helper to find the first value from a list of possible keys
+        def find_first_value(keys_list):
+            for key in keys_list:
+                value = _get(key)
+                if value:
+                    return value
+            return None
+
+        # 2. Find the raw text for each field
+        total_text = find_first_value(TOTAL_KEYS)
+        date_text = find_first_value(DATE_KEYS)
+        receipt_id_text = find_first_value(RECEIPT_ID_KEYS)
+        vendor_text = find_first_value(VENDOR_KEYS)
+        currency_text = find_first_value(CURRENCY_KEYS)
+
+        # 3. Parse and clean the extracted text
+        total_amount = None
+        if total_text:
+            # Find the first decimal number in the string to handle cases like "CASH $15.50"
+            match = re.search(r'(\d{1,3}(?:,\d{3})*(\.\d{2})?|\d+(\.\d{2})?)', total_text)
+            if match:
                 try:
-                    total_amount = float(Decimal(total_text.replace(",", "")))
-                except Exception:
+                    amount_str = match.group(1).replace(",", "")
+                    total_amount = float(Decimal(amount_str))
+                except (InvalidOperation, ValueError):
                     total_amount = None
 
-            if date_text:
-                try:
-                    receipt_date = dateparser.parse(date_text, dayfirst=False).date().isoformat()
-                except Exception:
-                    receipt_date = date_text  # fallback: raw text
-    except Exception as e:
-        return jsonify({"message": f"Error processing receipt: {e}"}), 500
+        receipt_date = None
+        if date_text:
+            try:
+                # 'PREFER_DATES_FROM': 'past' helps resolve dates like "Aug 20" correctly
+                parsed_dt = dateparser.parse(date_text, settings={'PREFER_DATES_FROM': 'past'})
+                if parsed_dt:
+                    receipt_date = parsed_dt.date().isoformat()
+            except Exception:
+                receipt_date = date_text  # Fallback to raw text
 
+        currency = currency_text.strip() if currency_text else None
+        if not currency and total_text:
+            if '$' in total_text: currency = 'USD'
+            elif '€' in total_text: currency = 'EUR'
+            elif '£' in total_text: currency = 'GBP'
+            else:
+                match = re.search(r'\b([A-Z]{3})\b', total_text)
+                if match:
+                    currency = match.group(1)
+
+        receipt_id = receipt_id_text.strip() if receipt_id_text else None
+        vendor_name = vendor_text.strip() if vendor_text else None
+
+    except Exception as e:
+        return jsonify({"message": f"Error processing receipt response: {e}"}), 500
+
+    # 4. Return the final structured data
     return jsonify({
+        "vendor_name": vendor_name,
         "receipt_id": receipt_id,
         "date": receipt_date,
         "amount": total_amount,
