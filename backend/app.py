@@ -1,19 +1,21 @@
 import traceback
 import boto3 # Added for AWS Textract
+from botocore.exceptions import NoRegionError
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, create_refresh_token, jwt_required, get_jwt_identity
-import re
 import os
-import pandas as pd
-import csv
+import csv # DBS CSV reader
 from datetime import datetime
 import openpyxl
-import pdfplumber
-import pandas as pd
+import pdfplumber  # DBS PDF Reader
+import pandas as pd  # Standard chart XLSV Readers
 import re
+
+from decimal import Decimal
+from dateutil import parser as dateparser
 
 from gevent.pool import pass_value
 
@@ -34,12 +36,28 @@ jwt = JWTManager(app)
 
 # Initialize AWS Textract client
 # Ensure your AWS credentials are configured (e.g., via environment variables or ~/.aws/credentials)
-try:
-    textract_client = boto3.client('textract')
-except Exception as e:
-    print(f"Error initializing Textract client: {e}")
-    textract_client = None # Handle case where client cannot be initialized
+# try:
+#     textract_client = boto3.client('textract')
+# except Exception as e:
+#     # print(f"Error initializing Textract client: {e}")
+#     textract_client = None # Handle case where client cannot be initialized
 
+def _make_textract_client():
+    region = (
+        os.getenv("AWS_REGION")
+        or os.getenv("AWS_DEFAULT_REGION")
+        or "ap-southeast-1"   # change if you use another region
+    )
+    return boto3.client("textract", region_name=region)
+
+try:
+    textract_client = _make_textract_client()
+except NoRegionError:
+    raise RuntimeError(
+        "AWS region not configured. Set AWS_REGION or AWS_DEFAULT_REGION (e.g. ap-southeast-1)."
+    )
+except Exception as e:
+    raise RuntimeError(f"Failed to init Textract client: {e}")
 
 # Models
 class User(db.Model):
@@ -233,68 +251,62 @@ def parse_receipt():
     if not user:
         return jsonify({"message": "User not found"}), 404
 
-    if 'receipt' not in request.files:
+    f = request.files.get("receipt")
+
+    if not f:
         return jsonify({"message": "No receipt file uploaded"}), 400
 
-    receipt_file = request.files['receipt']
-    
-    # Save the file temporarily to process it with Textract
-    # In a real application, you might want to use a more robust temporary file handling
-    temp_filename = f"temp_receipt_{datetime.now().timestamp()}{os.path.splitext(receipt_file.filename)[1]}"
-    temp_filepath = os.path.join('/tmp', temp_filename) # Use /tmp for temporary storage
-    receipt_file.save(temp_filepath)
-
-    extracted_data = {}
+    file_bytes = f.read()  # read directly; no need to save to /tmp
     try:
-        # Use AnalyzeExpense API for receipts
-        response = textract_client.analyze_expense(
-            Document={'Bytes': open(temp_filepath, 'rb').read()}
-        )
-
-        # Process the response to extract relevant information
-        # This is a simplified extraction; Textract's response structure is complex
-        # You'll need to parse 'ExpenseDocuments' and then 'LineItemGroups', 'LineItems', 'SummaryFields'
-        
-        receipt_id = None
-        receipt_date = None
-        total_amount = None
-        currency = None
-
-        if 'ExpenseDocuments' in response and response['ExpenseDocuments']:
-            expense_doc = response['ExpenseDocuments'][0]
-            
-            # Extract Summary Fields (like Total Amount, Date, etc.)
-            if 'SummaryFields' in expense_doc:
-                for field in expense_doc['SummaryFields']:
-                    field_type = field.get('Type', {}).get('Text')
-                    value_detection = field.get('ValueDetection', {})
-                    
-                    if field_type == 'TOTAL_AMOUNT':
-                        total_amount = value_detection.get('Amount')
-                        currency = value_detection.get('Currency')
-                    elif field_type == 'DATE':
-                        receipt_date = value_detection.get('Text')
-                    elif field_type == 'RECEIPT_ID':
-                        receipt_id = value_detection.get('Text')
-
-        extracted_data = {
-            "receipt_id": receipt_id,
-            "date": receipt_date,
-            "amount": total_amount,
-            "currency": currency
-        }
+        resp = textract_client.analyze_expense(Document={"Bytes": file_bytes})
 
     except Exception as e:
-        print(f"Error processing receipt with Textract: {e}")
-        print(traceback.format_exc())
-        return jsonify({"message": f"Error processing receipt: {str(e)}"}), 500
-    finally:
-        # Clean up the temporary file
-        if os.path.exists(temp_filepath):
-            os.remove(temp_filepath)
+        return jsonify({"message": f"Error calling Textract: {e}"}), 500
 
-    return jsonify(extracted_data)
+    # --- Parse AnalyzeExpense response ---
+    receipt_id = None
+    receipt_date = None
+    total_amount = None
+    currency = None
 
+    try:
+        docs = resp.get("ExpenseDocuments", [])
+        if docs:
+            summary = docs[0].get("SummaryFields", [])
+
+            def _get(type_name: str):
+                for sf in summary:
+                    if (sf.get("Type") or {}).get("Text") == type_name:
+                        vd = sf.get("ValueDetection") or {}
+                        return vd.get("Text")
+                return None
+
+            # Common keys returned by AnalyzeExpense
+            total_text = _get("TOTAL") or _get("AMOUNT_DUE") or _get("GRAND_TOTAL")
+            date_text = _get("INVOICE_RECEIPT_DATE") or _get("PURCHASE_DATE") or _get("DUE_DATE")
+            currency = _get("CURRENCY") or _get("CURRENCY_CODE")
+            receipt_id = _get("INVOICE_RECEIPT_ID") or _get("INVOICE_ID") or _get("REFERENCE_NUMBER")
+
+            if total_text:
+                try:
+                    total_amount = float(Decimal(total_text.replace(",", "")))
+                except Exception:
+                    total_amount = None
+
+            if date_text:
+                try:
+                    receipt_date = dateparser.parse(date_text, dayfirst=False).date().isoformat()
+                except Exception:
+                    receipt_date = date_text  # fallback: raw text
+    except Exception as e:
+        return jsonify({"message": f"Error processing receipt: {e}"}), 500
+
+    return jsonify({
+        "receipt_id": receipt_id,
+        "date": receipt_date,
+        "amount": total_amount,
+        "currency": currency
+    })
 
 def parse_date(date_str):
     """Convert a date string to a datetime object."""

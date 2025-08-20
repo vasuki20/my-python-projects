@@ -25,7 +25,13 @@ export const UserFiles = () => {
     return (
         <div className="container mx-auto p-6 bg-white rounded-lg shadow-xl mt-10">
             <h2 className="text-3xl font-extrabold mb-6 text-center text-gray-900">Your Uploaded Files</h2>
-            <div className="flex justify-end mb-6">
+            <div className="flex justify-end mb-6 space-x-4">
+                <button
+                    onClick={() => navigate('/parse-receipt')}
+                    className="px-6 py-3 flex items-center bg-primary hover:bg-blue-700 rounded-md shadow-sm text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                    <span style={{ marginRight: '8px' }}><FaFileUpload size={20} /></span> Upload Receipt
+                </button>
                 <button
                     onClick={() => navigate('/upload')}
                     className="px-6 py-3 flex items-center bg-primary hover:bg-blue-700 rounded-md shadow-sm text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
