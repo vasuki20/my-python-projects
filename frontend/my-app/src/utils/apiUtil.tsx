@@ -10,6 +10,9 @@ const axiosInstance = axios.create({
   }
 });
 
+// Export the instance to be used in other parts of the application
+export default axiosInstance;
+
 // Function to handle access token refresh
 const refreshAccessToken = async () => {
   try {

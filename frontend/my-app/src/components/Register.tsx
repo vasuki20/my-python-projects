@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import React, { useState } from 'react';
-import axios from 'axios';
 import { FaUserPlus, FaSignInAlt } from 'react-icons/fa';
+import axiosInstance from '../utils/apiUtil';
 
 // Note: The 'isRegistered' global variable might cause issues in concurrent rendering or server-side rendering.
 // It's generally better to manage state within the component or use context.
@@ -18,7 +18,8 @@ export const Register = () => {
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://127.0.0.1:5000/register', { email, password });
+      const res = await axiosInstance.post('/register', { email, password });
+      console.log(res);
       setMessage("Registration successful! Please go to the login page.");
       isRegistered = true; // Update global state
     } catch (error: any) {

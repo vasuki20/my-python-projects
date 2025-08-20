@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { FaFileUpload, FaArrowLeft, FaTimes } from 'react-icons/fa';
+import { useEffect, useState } from 'react';
+import { FaFileUpload, FaTimes } from 'react-icons/fa';
 import { apiRequest } from '../utils/apiUtil';
 import { useNavigate } from 'react-router-dom';
 

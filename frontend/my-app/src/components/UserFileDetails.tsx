@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FaArrowLeft, FaTrash } from 'react-icons/fa';
 import { apiRequest } from '../utils/apiUtil';
 import { useParams, useNavigate } from 'react-router-dom';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from "axios";
 import { Link, useNavigate } from 'react-router-dom';
 import { FaSignInAlt, FaUserPlus } from 'react-icons/fa';
+import axiosInstance from '../utils/apiUtil';
 
 export const Login = () => {
   const [email, setEmail] = useState("");
@@ -22,7 +22,7 @@ export const Login = () => {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://127.0.0.1:5000/login', { email, password });
+      const response = await axiosInstance.post('/login', { email, password });
       localStorage.setItem('email', email);
       localStorage.setItem('token', response.data.access_token);
       localStorage.setItem('refreshToken', response.data.refresh_token);
