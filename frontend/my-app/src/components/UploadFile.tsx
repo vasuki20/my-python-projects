@@ -45,7 +45,7 @@ export const UploadFile = () => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gradient-to-br p-4">
+        <div className="flex items-center justify-center mt-20 bg-gradient-to-br p-4">
             <div className="bg-white p-12 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
                 <h2 className="text-4xl font-extrabold mb-8 text-center text-gray-900 tracking-tight">
                     Upload Your File

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { apiRequest } from '../utils/apiUtil'; // Corrected import for named export
-
+import { useNavigate } from 'react-router-dom';
+import { FaFileUpload, FaTimes } from 'react-icons/fa';
 interface ExtractedReceiptData {
     receipt_id: string | null;
     date: string | null;
@@ -13,6 +14,7 @@ const ReceiptParser: React.FC = () => {
     const [extractedData, setExtractedData] = useState<ExtractedReceiptData | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files.length > 0) {
@@ -52,33 +54,42 @@ const ReceiptParser: React.FC = () => {
     };
 
     return (
-        <div className="p-4 border rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Parse Receipt</h2>
-            <div className="mb-4">
-                <label htmlFor="receiptUpload" className="block text-sm font-medium text-gray-700">
-                    Upload Receipt (JPG, PNG, PDF)
-                </label>
-                <input
-                    type="file"
-                    id="receiptUpload"
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    onChange={handleFileChange}
-                    className="mt-1 block w-full text-sm text-gray-500
-                               file:mr-4 file:py-2 file:px-4
-                               file:rounded-full file:border-0
-                               file:text-sm file:font-semibold
-                               file:bg-blue-50 file:text-blue-700
-                               hover:file:bg-blue-100"
-                />
+        <div className="p-4 border rounded-lg shadow-md">            
+            
+            <div className="flex items-center justify-center mt-20 bg-gradient-to-br p-4">
+                <div className="bg-white p-12 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
+                    <h2 className="text-4xl font-extrabold mb-8 text-center text-gray-900 tracking-tight">
+                        Upload Your Receipt (JPG, PNG, PDF)
+                    </h2>
+                    <div className="space-y-6">
+                        <div>
+                            <label htmlFor="file-upload" className="block text-lg font-medium text-gray-700 mb-2">
+                                Choose File
+                            </label>
+                            <input
+                                id="file-upload"
+                                type="file"
+                                onChange={handleFileChange}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-cyan-500 focus:border-cyan-500 transition duration-150 ease-in-out text-lg placeholder-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-cyan-500 file:text-white file:cursor-pointer hover:file:bg-cyan-600"
+                            />
+                        </div>
+                        <div className="flex justify-center mt-8 space-x-4"> {/* Added space-x-4 for spacing */}
+                            <button onClick={() => navigate('/files')} className="px-8 py-3 flex items-center bg-primary hover:bg-blue-700 rounded-lg shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition duration-150 ease-in-out">
+                                <span style={{ marginRight: '8px' }}><FaTimes size={20} /></span> Cancel
+                            </button>
+                            <button
+                                onClick={handleUpload}
+                                disabled={!selectedFile || isLoading}
+                                className="w-full flex justify-center items-center py-4 px-6 border border-transparent rounded-lg shadow-md text-xl font-bold bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition duration-150 ease-in-out"
+                            >
+                                <span style={{ marginRight: '8px' }}><FaFileUpload size={20} /></span> Upload
+                            </button>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
             </div>
-            <button
-                onClick={handleUpload}
-                disabled={!selectedFile || isLoading}
-                className="w-full px-4 py-2 bg-blue-600 text-black font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {isLoading ? 'Processing...' : 'Parse Receipt'}
-            </button>
-
             {error && (
                 <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md">
                     {error}
@@ -93,6 +104,7 @@ const ReceiptParser: React.FC = () => {
                     <p><strong>Amount:</strong> {extractedData.amount !== null ? `${extractedData.currency || ''} ${extractedData.amount}` : 'N/A'}</p>
                 </div>
             )}
+            
         </div>
     );
 };
