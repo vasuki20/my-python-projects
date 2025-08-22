@@ -29,8 +29,8 @@ export const Login = () => {
       navigate('/files');
     } catch (error: any) {
       console.error('Login failed:', error);
-      if (error.response && error.response.data && error.response.data.message) {
-        setMessage(error.response.data.message);
+      if (error.response && error.response.data && error.response.data.error) {
+        setMessage(error.response.data.error);
       } else {
         setMessage("An unexpected error occurred during login.");
       }
