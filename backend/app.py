@@ -241,7 +241,7 @@ def upload_user_file():
     db.session.commit()
 
     # return jsonify({"message": "File uploaded and processed", "file_id": new_upload.id})
-    return jsonify({"message": "File uploaded and processed"})
+    return jsonify({"message": "File uploaded and processed", "file_id": user_file.id})
 
 # --- New Endpoint for Receipt Parsing ---
 @app.route("/parse-receipt", methods=["POST"])
