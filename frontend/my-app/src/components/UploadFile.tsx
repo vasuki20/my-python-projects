@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaFileUpload, FaTimes } from 'react-icons/fa';
 import { apiRequest } from '../utils/apiUtil';
 import { useNavigate } from 'react-router-dom';
 

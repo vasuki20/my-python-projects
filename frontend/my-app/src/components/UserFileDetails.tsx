@@ -62,7 +62,7 @@ export const UserFileDetails: React.FC = () => {
             // Assuming the backend provides a download endpoint or the file URL directly
             // For simplicity, let's assume apiRequest can fetch the file content
             // In a real app, you might need a specific download endpoint or handle blobs differently
-            const response = await apiRequest('GET', `/user-files/${fileId}`, null, false, { responseType: 'blob' });
+            const response = await apiRequest('GET', `/user-files/${fileId}`, null, false);
 
             // Create a blob URL and trigger download
             const url = window.URL.createObjectURL(new Blob([response]));

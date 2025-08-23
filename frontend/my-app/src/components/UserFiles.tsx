@@ -1,12 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { FaFileUpload, FaEye, FaArrowLeft } from 'react-icons/fa';
+import { FaFileUpload, FaEye } from 'react-icons/fa';
 import { apiRequest } from '../utils/apiUtil';
 import { useNavigate } from 'react-router-dom';
-
-interface FileFormat {
-  id: string;
-  name: string;
-}
 
 // Component to display all file uploads
 export const UserFiles: React.FC = () => {
