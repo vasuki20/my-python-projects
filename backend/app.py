@@ -2,6 +2,8 @@ import traceback
 import boto3 # Added for AWS Textract
 from botocore.exceptions import NoRegionError
 from flask import Flask, request, jsonify, send_file
+import logging
+from logging.handlers import RotatingFileHandler
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
@@ -20,6 +22,19 @@ from dateutil import parser as dateparser
 from gevent.pool import pass_value
 
 app = Flask(__name__)
+
+# Logging Configuration
+if not app.debug:
+    handler = RotatingFileHandler('backend/app.log', maxBytes=10000, backupCount=1)
+    handler.setLevel(logging.INFO)
+    formatter = logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    )
+    handler.setFormatter(formatter)
+    app.logger.addHandler(handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Expense Tracker startup')
+
 app.config['JWT_SECRET_KEY'] = 'your_secret_key'  # Change this to a secure key
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///expense_tracker.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -229,15 +244,15 @@ def upload_user_file():
         elif bank_file_format_id == 3:
             parse_dbs_pdf_transactions(user_file.id, filename)
     except Exception as e:
-        print(e)
-        print(traceback.format_exc())
+        app.logger.error(f"Error processing file {filename}: {e}")
+        app.logger.error(traceback.format_exc())
         if os.path.exists(filename):
-            os.remove(file_path) # Corrected to remove the saved file
+            os.remove(filename) # Corrected to remove the saved file
         return f"An error occurred: {str(e)}", 500
         # pass
         # todo: to remove the file in case any error happens
 
-    print("befopre commit")
+    app.logger.info("File processed successfully, committing to database.")
     db.session.commit()
 
     # return jsonify({"message": "File uploaded and processed", "file_id": new_upload.id})
@@ -264,6 +279,7 @@ def parse_receipt():
         # Call Amazon Textract API
         resp = textract_client.analyze_expense(Document={"Bytes": file_bytes})
     except Exception as e:
+        app.logger.error(f"Error calling Textract: {e}")
         return jsonify({"message": f"Error calling Textract: {e}"}), 500
 
     # --- Start of the updated parsing logic ---
@@ -365,13 +381,13 @@ def parse_sc_date(date_str):
         # Use pandas to parse dates as it's more robust and can handle multiple formats
         return datetime.strptime(date_str, '%d %b')
     except Exception as e:
-        print(f"Error parsing date: {e}")
+        app.logger.error(f"Error parsing date: {e}")
         return None
 
 def parse_dbs_csv_transactions(user_file_id, file_path):
     # Check if the file exists
     if not os.path.exists(file_path):
-        print(f"File not found: {file_path}")
+        app.logger.error(f"File not found: {file_path}")
         return "File not found", 400
 
     transactions = []
@@ -403,7 +419,7 @@ def parse_dbs_csv_transactions(user_file_id, file_path):
 def parse_dbs_pdf_transactions(user_file_id, file_path):
     # Check if the file exists
     if not os.path.exists(file_path):
-        print(f"File not found: {file_path}")
+        app.logger.error(f"File not found: {file_path}")
         return "File not found", 400
     
     transactions = []
@@ -425,7 +441,7 @@ def parse_dbs_pdf_transactions(user_file_id, file_path):
                 if match:
                     # Extract date, description, amount, and type (Credit/Debit)
                     date = match.group(1)
-                    print(date)
+                    app.logger.info(date)
                     description = match.group(2).strip()
                     amount = float(match.group(3).replace(',', ''))
 
@@ -440,8 +456,8 @@ def parse_dbs_pdf_transactions(user_file_id, file_path):
                         remarks_1=description,
                         user_file_id=user_file_id
                     )
-                    print("inserting")
-                    print(transaction)
+                    app.logger.info("inserting")
+                    app.logger.info(transaction)
 
                     db.session.add(transaction)
 
@@ -487,9 +503,9 @@ def parse_sc_transactions(user_file_id, file_path):
     xls = pd.ExcelFile(file_path, engine='openpyxl')
     # Process each sheet
     for sheet_name in xls.sheet_names:
-        print(f"Processing sheet: {sheet_name}")
+        app.logger.info(f"Processing sheet: {sheet_name}")
         if False and not sheet_name == 'Table 2':
-            print("skipping {}".format(sheet_name))
+            app.logger.info("skipping {}".format(sheet_name))
             continue
 
         df = pd.read_excel(xls, sheet_name=sheet_name, engine='openpyxl')
@@ -514,7 +530,7 @@ def parse_sc_transactions(user_file_id, file_path):
                     raw_date= row.iloc[column_indexs[sheet_name]['transaction_date']]
                     transaction_date = parse_sc_date(str(raw_date))  # Expects format like "16 Nov"
                     if not transaction_date:
-                        print(f"Failed to parse date {raw_date} in row {idx + 1} of {sheet_name}")
+                        app.logger.warning(f"Failed to parse date {raw_date} in row {idx + 1} of {sheet_name}")
                         continue
                 except ValueError:
                     transaction_date = None
@@ -527,7 +543,7 @@ def parse_sc_transactions(user_file_id, file_path):
                         try:
                             transaction_date = datetime.strptime(transaction_date, "%d %b")
                         except ValueError:
-                            print(f"Invalid date format in row {idx + 2} of {sheet_name}: {transaction_date}")
+                            app.logger.warning(f"Invalid date format in row {idx + 2} of {sheet_name}: {transaction_date}")
                             transaction_date = ""
                     elif pd.notna(transaction_date):
                         transaction_date = pd.to_datetime(transaction_date, errors='coerce')
