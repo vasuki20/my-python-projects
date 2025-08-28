@@ -525,17 +525,15 @@ def parse_sc_transactions(user_file_id, file_path):
                     # Convert date properly
                     if isinstance(transaction_date, str):
                         try:
-                            transaction_date = datetime.strptime(transaction_date, "%d %b").strftime(
-                                '%Y-%m-%d')  # Format like "16 Nov"
+                            transaction_date = datetime.strptime(transaction_date, "%d %b")
                         except ValueError:
                             print(f"Invalid date format in row {idx + 2} of {sheet_name}: {transaction_date}")
                             transaction_date = ""
                     elif pd.notna(transaction_date):
-                        transaction_date = pd.to_datetime(transaction_date, errors='coerce').strftime('%Y-%m-%d')
+                        transaction_date = pd.to_datetime(transaction_date, errors='coerce')
                     else:
                         transaction_date = ""
 
-                    date = transaction_date
                     description = row.iloc[column_indexs[sheet_name]['description_1']]
                     values.append(description)
                     money = row.iloc[column_indexs[sheet_name]['amount']]
